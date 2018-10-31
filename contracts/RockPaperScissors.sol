@@ -1,50 +1,62 @@
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.4.24;
 
 contract RockPaperScissors {
 
-    enum Shape { ROCK, PAPER, SCISSORS}
+    enum Shape {NONE, ROCK, PAPER, SCISSORS}
 
     struct Player {
-        uint balance;
         address owner;
-        Shape shape;
+        uint bet;
+        bytes32 encryptedMove;
     }
+    bool hasAliceBet;
+    bool hasBobBet;
+
+    uint bet;
+    address owner;
+
+    Shape aliceMove;
+    Shape bobMove;
+
+    bytes32 encryptedAliceMove;
+    bytes32 encryptedBobMove;
 
     mapping(address => Player) public players;
 
     event LogWinner(address player);
+    event LogEtherDeposed(uint _amount);
 
-    constructor(address _bob) public {
-        Player memory alice = players[msg.sender];
-        alice.owner = msg.sender;
-        Player memory bob = players[_bob];
-        bob.owner = _bob;
-        alice.balance = 1000000;
-        bob.balance = 1000000;
+    modifier onlyIfMovesSubmitted() {
+        require(encryptedAliceMove != bytes32(0) && encryptedBobMove != bytes32(0));
+        _;
     }
 
-    function emergeWinner(Shape aliceShape, Shape bobShape) private view returns (Player winner) {
-        if (aliceShape == bobShape) {
-            revert("A tie. Nothing happens. end of story.");
+    constructor(address _bob) public {
+        owner = msg.sender;
+    }
+
+    function compareMoves(Shape aliceMove, Shape bobMove) private view returns (Player winner) {
+        if (aliceMove == bobMove) {
+            revert("A tie. Nothing happens");
         }
-        if (aliceShape == Shape.ROCK) {
-            if (bobShape == Shape.PAPER) {
+        if (aliceMove == Shape.ROCK) {
+            if (bobMove == Shape.PAPER) {
                 return players[1];
             }
             else {
                 return players[0];
             }
         }
-        if (aliceShape == Shape.PAPER) {
-            if (bobShape == Shape.SCISSORS) {
+        if (aliceMove == Shape.PAPER) {
+            if (bobMove == Shape.SCISSORS) {
                 return players[1];
             }
             else {
                 return players[0];
             }
         }
-        if (aliceShape == Shape.SCISSORS) {
-            if (bobShape == Shape.ROCK) {
+        if (aliceMove == Shape.SCISSORS) {
+            if (bobMove == Shape.ROCK) {
                 return players[1];
             }
             else {
@@ -52,24 +64,42 @@ contract RockPaperScissors {
             }
         }
         else {
-            revert("WTF just happened, I dont even");
+            revert("Error occured");
         }
     }
 
-    function betGame(uint _aliceBalance, uint _bobBalance, uint betAmount) public payable returns (bool success) {
-        require(betAmount >= 0); 
-        uint bet;
-        bet += betAmount * 2;
-        players[0].balance -= betAmount;
-        players[1].balance -= betAmount;
+    function betGame(bytes32 _move) public payable {
+        if (!hasAliceBet) {
+            hasAliceBet = true;
+            players[0].bet += msg.value;
+            players[0].owner = msg.sender;
+            players[0].encryptedMove = _move;
+        } else {
+            require(bet == msg.value);
+            hasBobBet = true; 
+            players[1].bet = msg.value;
+            players[1].owner = msg.sender;
+            players[1].encryptedMove = _move;
+        }
+    }
+
+    function play() public payable onlyIfMovesSubmitted returns (bool) {
+        require(msg.sender != 0);
+        Player memory winner = compareMoves(aliceMove, bobMove);
+        emit LogWinner(winner.owner); 
         return true;
     }
 
-    function play(Player _bob, uint amount) public payable returns (bool success) {
-        betGame(msg.sender.balance, _bob.balance, amount);
-        require(_bob.owner != 0);
-        require(amount >= 0);
-        Player memory winner = emergeWinner(players[0].shape, players[1].shape);
-        return true;
+    function hashPlay(address _player, string _move) private pure returns (bytes32) {
+        bytes32 result = keccak256(abi.encodePacked(_player, _move));
+        return result;
+    }
+
+    function kill() private {
+        selfdestruct(owner);
+    }
+
+    function() public {
+        revert();
     }
 }
