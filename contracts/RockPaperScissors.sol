@@ -7,7 +7,7 @@ contract RockPaperScissors {
     struct Player {
         address owner;
         uint bet;
-        bytes32 encryptedMove;
+        bytes32 hashedMove;
     }
     bool hasAliceBet;
     bool hasBobBet;
@@ -18,8 +18,8 @@ contract RockPaperScissors {
     Shape aliceMove;
     Shape bobMove;
 
-    bytes32 encryptedAliceMove;
-    bytes32 encryptedBobMove;
+    bytes32 hashedAliceMove;
+    bytes32 hashedBobMove;
 
     mapping(address => Player) public players;
 
@@ -27,15 +27,15 @@ contract RockPaperScissors {
     event LogEtherDeposed(uint _amount);
 
     modifier onlyIfMovesSubmitted() {
-        require(encryptedAliceMove != bytes32(0) && encryptedBobMove != bytes32(0));
+        require(hashedAliceMove != bytes32(0) && hashedBobMove != bytes32(0));
         _;
     }
 
-    constructor(address _bob) public {
+    constructor() public {
         owner = msg.sender;
     }
 
-    function compareMoves(Shape aliceMove, Shape bobMove) private view returns (Player winner) {
+    function compareMoves(Shape aliceMove, Shape bobMove) public view returns (Player winner) {
         if (aliceMove == bobMove) {
             revert("A tie. Nothing happens");
         }
@@ -68,18 +68,18 @@ contract RockPaperScissors {
         }
     }
 
-    function betGame(bytes32 _move) public payable {
+    function betGame(bytes32 _hashedMove) public payable {
         if (!hasAliceBet) {
             hasAliceBet = true;
             players[0].bet += msg.value;
             players[0].owner = msg.sender;
-            players[0].encryptedMove = _move;
+            players[0].hashedMove = _hashedMove;
         } else {
             require(bet == msg.value);
             hasBobBet = true; 
-            players[1].bet = msg.value;
+            players[1].bet += msg.value;
             players[1].owner = msg.sender;
-            players[1].encryptedMove = _move;
+            players[1].hashedMove = _hashedMove;
         }
     }
 
@@ -91,11 +91,10 @@ contract RockPaperScissors {
     }
 
     function hashPlay(address _player, string _move) private pure returns (bytes32) {
-        bytes32 result = keccak256(abi.encodePacked(_player, _move));
-        return result;
+        return keccak256(abi.encodePacked(_player, _move));
     }
 
-    function kill() private {
+    function kill() public {
         selfdestruct(owner);
     }
 
