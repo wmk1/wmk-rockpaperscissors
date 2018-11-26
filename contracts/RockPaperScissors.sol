@@ -7,7 +7,8 @@ contract RockPaperScissors {
     struct Player {
         address owner;
         uint bet;
-        bytes32 encryptedMove;
+        bytes32 hashedMove;
+        bool betSubmitted;
     }
     bool hasAliceBet;
     bool hasBobBet;
@@ -30,7 +31,7 @@ contract RockPaperScissors {
     event LogEtherDeposed(uint _amount);
 
     modifier onlyIfMovesSubmitted() {
-        require(hashedAliceMove != bytes32(0) && hashedBobMove != bytes32(0));
+        require(hashedAliceMove != bytes32(0) && hashedBobMove != bytes32(0), "Moves have to be submitted");
         _;
     }
 
@@ -40,7 +41,7 @@ contract RockPaperScissors {
 
     function compareMoves(Shape aliceMove, Shape bobMove) public view returns (uint winner) {
         if (aliceMove == bobMove) {
-            return 0;
+            return 2;
         }
         if (aliceMove == Shape.ROCK) {
             if (bobMove == Shape.PAPER) {
@@ -76,19 +77,28 @@ contract RockPaperScissors {
             hasAliceBet = true;
             players[0].bet += msg.value;
             players[0].owner = msg.sender;
-            players[0].encryptedMove = _hashedMove;
+            players[0].hashedMove = _hashedMove;
+            players[0].betSubmitted = true;
         } else {
             require(bet == msg.value);
             hasBobBet = true; 
-            players[1].bet = msg.value;
+            players[1].bet += msg.value;
             players[1].owner = msg.sender;
-            players[1].encryptedMove = _hashedMove;
+            players[1].hashedMove = _hashedMove;
+            players[1].betSubmitted = true;
         }
     }
 
     function play() public payable onlyIfMovesSubmitted returns (bool) {
         uint gameWinner = compareMoves(aliceMove, bobMove);
-        emit LogWinner(players[gameWinner]); 
+        if (gameWinner == 2) {
+            players[1].owner.transfer(this.balance/2);
+            players[0].owner.transfer(this.balance/2);
+        } else if (gameWinner == 1) {
+            players[1].owner.transfer(this.balance);
+        } else {
+            players[0].owner.transfer(this.balance);
+        }
         return true;
     }
 
@@ -97,7 +107,7 @@ contract RockPaperScissors {
         return result;
     }
 
-    function kill() private {
+    function kill() public {
         selfdestruct(owner);
     }
 
