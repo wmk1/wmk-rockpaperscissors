@@ -38,26 +38,4 @@ contract("RockPaperScissors contract", (accounts) => {
             });
     });
 
-    it("Should fail while betting game ",  () => {
-        //given
-        const aliceMove = ROCK;
-        const bobMove = SCISSORS;
-
-        const aliceHashedMove = contractInstance.
-
-        //when
-        return contractInstance.({ value: amountSended, from: alice})
-            //then
-            .then(txReceipt => {
-                let eventNames = txReceipt.logs.filter(log => log.event == "LogEtherSended");
-                assert(eventNames.length > 0, "No LogEtherSended events found, is it surely emitted?");
-                assert.equal(eventNames[0].event, "LogEtherSended", "Some obstruction occured,");
-                return contractInstance.balances(carol)
-            })
-            //then
-            .then(_carol => {
-                carol = _carol;
-                assert.strictEqual(carol, expectedAmount.toString(10));
-            });
-    });
 });
