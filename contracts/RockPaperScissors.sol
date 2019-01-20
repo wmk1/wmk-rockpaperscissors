@@ -13,23 +13,63 @@ contract RockPaperScissors {
     }
 
     struct Player {
-        address player;
+        address payable player;
         uint deposit;
         bytes32 moveHashed;
-        bool moveSubmitted;
+        Move move;
+        bool moveValidated;
     }
 
     Player[2] players;
 
-    uint public playerIndex = 0;
+    uint public playerCount = 0;
+
+    modifier onlyIfTwoPlayers {
+        require(playerCount == 2);
+        _;
+    }
+
+    modifier onlyIfMovesSubmitted(uint _playerAIndex, uint _playerBIndex) {
+        require(players[_playerAIndex].moveSubmitted == true && players[_playersBIndex].moveSubmitted == true, "Two players must bet game");
+        _;
+    }
+
+
 
     function makeMove(bytes32 _hashedMove) public payable returns (bool success) {
-        playerIndex +=1;
-        players[playerIndex].player = msg.sender;
-        players[playerIndex].deposit = msg.value;
-        players[playerIndex].moveHashed = _hashedMove;
-        players[playerIndex].moveSubmitted = true;
+        playerCount +=1;
+        require(playerCount <= 2, "...so far only two players can play");
+        players[playerCount].player = msg.sender;
+        players[playerCount].deposit = msg.value;
+        players[playerCount].moveHashed = _hashedMove;
         return success;
+    }
+
+    function unhashMove(Move _move, string memory _password) public returns(bool success) {
+        uint playerIndex = 0;
+        Player memory player = players[playerIndex];
+        bytes32 playerMove = player.moveHashed;
+        require(playerMove == keccak256(abi.encodePacked(_move, _password)), "Wrong move or password!");
+        player.move = _move;
+        player.moveValidated = true;
+    }
+
+    function betGame() public payable returns(bool success) {
+        winningAmount += players[0].deposit;
+        winningAmount += players[1].deposit;
+        uint winnerIndex = compareMoves(players[0].move, players[1].move);
+        if (winnerIndex == 0) {
+            uint halfWinningAmount = (winningAmount % 2) / 2;
+            players[0].player.transfer(halfWinningAmount);
+            players[1].player.transfer(halfWinningAmount);
+        }
+        if (winnerIndex == 1) {
+            players[0].player.transfer(winningAmount);
+        }
+        if (winnerIndex == 2) {
+            players[1].player.transfer(winningAmount);
+        }
+        return true;
     }
 
     function compareMoves(Move _firstMove, Move _secondMove) public returns (uint winner) {
@@ -61,5 +101,11 @@ contract RockPaperScissors {
     }
 
 
-   
+    function exitGame() public payable returns (bool success) {
+        if (players[1].player == msg.sender) {
+            playerCount -= 1;
+            players[1].player.transfer(players[1].deposit);
+            return true;
+        }
+    }
 }
